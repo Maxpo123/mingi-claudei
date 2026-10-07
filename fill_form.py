@@ -78,7 +78,7 @@ def single_column(weights, n):
     return col
 
 
-def multi_column(weights, n):
+def multi_column(weights, n, required):
     """Each option is ticked by exactly round(p*n) respondents; >=1 option per respondent."""
     ticks = []
     for opt, pct in weights.items():
@@ -86,9 +86,10 @@ def multi_column(weights, n):
         random.shuffle(flags)
         ticks.append((opt, flags))
     rows = [[o for o, f in ticks if f[i]] for i in range(n)]
-    for r in rows:  # nobody submits an empty required checkbox
-        if not r:
-            r.append(max(weights, key=weights.get))
+    if required:  # a required question can't be left empty; fill with a weighted pick
+        for r in rows:
+            if not r:
+                r.append(random.choices(list(weights), list(weights.values()))[0])
     return rows
 
 
@@ -110,7 +111,8 @@ def load_form():
     for it in items:
         if it[3] in (2, 4) and it[4]:  # 2 = multiple choice, 4 = checkboxes
             questions.append({"title": it[1], "entry": it[4][0][0],
-                              "options": [o[0] for o in it[4][0][1]]})
+                              "options": [o[0] for o in it[4][0][1]],
+                              "required": bool(it[4][0][2])})
     return questions, sections
 
 
@@ -129,7 +131,7 @@ def build_submissions(questions, n):
                 sys.exit(f"Option '{label}' not found in question '{q['title']}'. "
                          f"Form has: {q['options']}")
             resolved[real] = w
-        col = single_column(resolved, n) if kind == "single" else multi_column(resolved, n)
+        col = single_column(resolved, n) if kind == "single" else multi_column(resolved, n, q["required"])
         columns.append((q["entry"], q["title"], col))
     return columns
 
